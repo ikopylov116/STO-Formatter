@@ -1,0 +1,19 @@
+name: Build Windows EXE
+on:
+  push:
+    branches: ["codex/working-sto-formatter", "feature/p305-2026-formatter"]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt
+      - run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name STO-Formatter sto_formatter.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: STO-Formatter-Windows
+          path: dist/STO-Formatter.exe
