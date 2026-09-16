@@ -1,18 +1,47 @@
 name: Build Windows EXE
+
 on:
   push:
     branches: ["codex/working-sto-formatter", "feature/p305-2026-formatter"]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - run: python -m pip install -r requirements.txt
-      - run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name STO-Formatter sto_formatter.py
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+
+      - name: Configure Tcl/Tk for PyInstaller
+        shell: pwsh
+        run: |
+          $base = python -c "import sys; print(sys.base_prefix)"
+          $tcl = Join-Path $base "tcl\tcl8.6"
+          $tk = Join-Path $base "tcl\tk8.6"
+          if (!(Test-Path $tcl)) { throw "Tcl directory not found: $tcl" }
+          if (!(Test-Path $tk)) { throw "Tk directory not found: $tk" }
+          "TCL_LIBRARY=$tcl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "TK_LIBRARY=$tk" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "TCL_LIBRARY=$tcl"
+          Write-Host "TK_LIBRARY=$tk"
+          python -c "import tkinter; r=tkinter.Tk(); r.withdraw(); r.destroy(); print('Tkinter OK')"
+
+      - name: Build EXE
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name STO-Formatter sto_formatter.py
+
+      - name: Verify EXE was created
+        shell: pwsh
+        run: |
+          if (!(Test-Path "dist\STO-Formatter.exe")) { throw "EXE was not created" }
+          Write-Host "EXE created successfully"
+          Get-Item "dist\STO-Formatter.exe" | Format-List Name,Length,LastWriteTime
+
       - uses: actions/upload-artifact@v4
         with:
           name: STO-Formatter-Windows
